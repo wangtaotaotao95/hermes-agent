@@ -59,3 +59,43 @@ test('prepared inputs are path-bound and reject changed or missing bytes without
   fs.rmSync(inputs.electron)
   assert.throws(() => prepared.readPackagingInputs(manifest, inputs.source, 'linux-x64'), /run preparation again/i)
 })
+
+test('relocated icon tools retain CommonJS scope under the ESM desktop package', () => {
+  const { source, electron, sevenZip, icons } = fixture()
+  const desktop = path.join(source, 'apps/desktop')
+  fs.writeFileSync(path.join(desktop, 'package.json'), '{"type":"module"}')
+  const packages = {}
+  for (const name of ['app-builder-lib', 'electron-builder']) {
+    const root = path.join(source, 'node_modules', name)
+    fs.mkdirSync(root, { recursive: true })
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name, version: '1.0.0', main: 'index.js' }))
+    fs.writeFileSync(path.join(root, 'index.js'), '')
+    packages[`node_modules/${name}`] = { version: '1.0.0' }
+  }
+  fs.writeFileSync(path.join(source, 'package-lock.json'), JSON.stringify({ packages }))
+  const supplier = path.join(source, 'node_modules/app-builder-lib/dist')
+  fs.mkdirSync(path.join(supplier, 'util'), { recursive: true })
+  fs.mkdirSync(path.join(supplier, 'toolsets'), { recursive: true })
+  fs.writeFileSync(path.join(supplier, 'util/electronGet.js'),
+    `exports.downloadElectronArtifactZip = async () => ${JSON.stringify(electron)}`)
+  fs.writeFileSync(path.join(supplier, 'toolsets/7zip.js'),
+    `exports.getPath7za = async () => ${JSON.stringify(path.join(sevenZip, 'bin', '7za'))}`)
+  fs.writeFileSync(path.join(supplier, 'toolsets/icons.js'),
+    `exports.getIconsToolsetPath = async () => ${JSON.stringify(icons)}`)
+  fs.writeFileSync(path.join(icons, 'icon-tool.js'),
+    'console.log(require("node:fs").existsSync(__filename) ? "icon tool ready" : "missing")')
+  const out = path.join(desktop, 'build/prepared-packaging-tools')
+  const args = [path.join(import.meta.dirname, 'prepare-packaging-tools.mjs'),
+    '--source', source, '--out', out, '--cache', path.join(source, 'cache'), '--format', 'dir']
+  // Every preparation replaces the tool directory, so the scope must survive a re-run too.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const preparedRun = spawnSync(process.execPath, args, { encoding: 'utf8' })
+    assert.equal(preparedRun.status, 0, preparedRun.stderr)
+    const receipt = prepared.readPackagingInputs(path.join(out, 'prepared.json'), source,
+      `${process.platform}-${process.arch}`)
+    const result = spawnSync(process.execPath, [path.join(receipt.toolsets.icons, 'icon-tool.js')], { encoding: 'utf8' })
+    assert.equal(result.status, 0, result.stderr)
+    assert.equal(result.stdout.trim(), 'icon tool ready')
+  }
+  assert.equal(fs.existsSync(path.join(icons, 'package.json')), false, 'leave the supplier unchanged')
+})
