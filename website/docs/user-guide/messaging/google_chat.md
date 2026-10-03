@@ -97,8 +97,17 @@ After creation, the topic's detail page has a **Subscriptions** tab. Create one:
 
 On the **topic** (not the subscription), add an IAM principal:
 
-- Principal: `chat-api-push@system.gserviceaccount.com`
+- Principal: for a Google Workspace add-on, copy **Service account email** from
+  **Google Chat API → Configuration → Connection settings** after configuring the
+  app in Step 7. Use the exact project-specific identity shown there.
+- For an app using Chat API interaction events, use
+  `chat-api-push@system.gserviceaccount.com` instead.
 - Role: `Pub/Sub Publisher`
+
+Google documents these two publisher identities in its
+[Pub/Sub setup guidance](https://developers.google.com/workspace/events/guides/create-subscription).
+This publisher identity is separate from the Service Account you created in Step 3
+for Hermes to read the subscription.
 
 Without this, Google Chat cannot publish events to your topic and your bot will
 never receive anything.

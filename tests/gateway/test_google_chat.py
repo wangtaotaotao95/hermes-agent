@@ -1761,3 +1761,41 @@ class TestGoogleChatStandaloneSend:
         assert kwargs["headers"]["Authorization"] == "Bearer the-token"
         assert kwargs["json"] == {"text": "hello cron"}
 
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("content_name,mime,expected_name", [
+    ("Quarterly report.pdf", "application/pdf", "Quarterly report.pdf"),
+    (None, "application/pdf", "A.pdf"),
+    ("", "application/pdf; charset=binary", "A.pdf"),
+    ("notes.txt", "text/plain", "notes.txt"),
+    (None, "application/x-hermes-unknown", "A"),
+])
+async def test_downloaded_document_keeps_a_usable_filename(
+    adapter, monkeypatch, content_name, mime, expected_name,
+):
+    """The real cache must retain the file extension used by document extraction."""
+    from pathlib import Path
+
+    data = b"controlled attachment bytes"
+
+    class Download:
+        def __init__(self, destination, request):
+            self.destination = destination
+
+        def next_chunk(self):
+            self.destination.write(data)
+            return None, True
+
+    monkeypatch.setattr(sys.modules["googleapiclient.http"], "MediaIoBaseDownload", Download)
+    attachment = {
+        "name": "spaces/S/messages/M/attachments/A",
+        "contentName": content_name,
+        "contentType": mime,
+        "attachmentDataRef": {"resourceName": "spaces/S/messages/M/attachments/A"},
+    }
+    cached, returned_mime = await adapter._download_attachment(attachment)
+    path = Path(cached)
+    assert path.read_bytes() == data
+    assert path.name.endswith("_" + expected_name)
+    assert returned_mime == mime

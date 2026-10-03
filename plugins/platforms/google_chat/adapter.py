@@ -15,6 +15,7 @@ import contextvars
 import importlib
 import json
 import logging
+import mimetypes
 import os
 import random
 import re
@@ -1025,7 +1026,13 @@ class GoogleChatAdapter(BasePlatformAdapter):
         if data is None:
             return None, mime
         # cache_* helpers take ``ext`` for media and a positional filename for docs.
-        filename = name.split("/")[-1] if name else "attachment"
+        # `name` is a resource ID; `contentName` carries the user's filename.
+        filename = attachment.get("contentName") or ""
+        if not filename:
+            filename = (name.split("/")[-1] if name else "attachment") + (
+                mimetypes.guess_extension(mime.split(";", 1)[0].strip().lower()) or ""
+            )
+        filename = filename.replace("\\", "/").split("/")[-1] or "attachment"
         ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
         for prefix, cache_fn, default_ext in _MEDIA_CACHERS:
             if mime.startswith(prefix):

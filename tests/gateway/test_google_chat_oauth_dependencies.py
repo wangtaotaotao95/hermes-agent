@@ -75,3 +75,26 @@ def test_ensure_deps_requests_every_extra_before_reporting_a_restart(monkeypatch
     with pytest.raises(pm.InstallError, match="google installed"):
         adapter.ensure_google_chat_deps()
     assert requested == ["google", "google-chat"]
+
+
+def test_declared_google_extras_satisfy_the_runtime_probe(monkeypatch):
+    """A fully synced PM environment must not be reported perpetually stale."""
+    import tomllib
+    from pathlib import Path
+    from packaging.requirements import Requirement
+    from packaging.utils import canonicalize_name
+
+    project = tomllib.loads((Path(__file__).resolve().parents[2] / "pyproject.toml").read_text(encoding="utf-8"))
+    extras = project["project"]["optional-dependencies"]
+    installed = {}
+    for extra in oauth._DEPENDENCY_EXTRAS:
+        for spec in extras[extra]:
+            requirement = Requirement(spec)
+            installed[canonicalize_name(requirement.name)] = next(
+                pin.version for pin in requirement.specifier if pin.operator == "=="
+            )
+    monkeypatch.setattr(oauth, "_distribution_version", lambda name: installed[canonicalize_name(name)])
+    monkeypatch.setattr(pm, "sync_venv", lambda *args, **kwargs: pytest.fail("already current"))
+
+    assert oauth._missing_required_packages() == []
+    assert oauth.install_deps() is True
