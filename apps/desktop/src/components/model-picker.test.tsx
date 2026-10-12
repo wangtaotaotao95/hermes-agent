@@ -219,3 +219,31 @@ describe('ModelPickerDialog search ranking', () => {
     })
   })
 })
+
+describe('ModelPickerDialog context windows', () => {
+  it('shows known windows on the matching rows and leaves unknown models unlabelled', async () => {
+    vi.mocked(requestModelOptions).mockResolvedValue({
+      providers: [
+        {
+          slug: 'openai',
+          name: 'OpenAI',
+          models: ['small', 'large', 'unknown'],
+          capabilities: {
+            small: { fast: false, reasoning: false, context_window: 32000 },
+            large: { fast: false, reasoning: true, context_window: 1000000 },
+            unknown: { fast: false, reasoning: true }
+          }
+        }
+      ]
+    })
+    renderPicker()
+
+    const small = (await screen.findByText('small')).closest('[cmdk-item]')
+    const large = screen.getByText('large').closest('[cmdk-item]')
+    const unknown = screen.getByText('unknown').closest('[cmdk-item]')
+
+    expect(small?.textContent).toContain('32k')
+    expect(large?.textContent).toContain('1M')
+    expect(unknown?.querySelector('span[title]')).toBeNull()
+  })
+})

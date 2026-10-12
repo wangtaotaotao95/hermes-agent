@@ -544,7 +544,7 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
     from hermes_cli.models import model_supports_ultrafast, resolve_fast_mode_overrides
 
     try:
-        from agent.models_dev import get_model_capabilities
+        from agent.models_dev import get_model_capabilities, lookup_models_dev_context
     except Exception:
         get_model_capabilities = None  # type: ignore[assignment]
 
@@ -554,9 +554,11 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
         read_reasoning_catalog = _reasoning_catalog_reader(slug.lower())
         for model in row.get("models") or []:
             reasoning = True
+            context_window = None
             if get_model_capabilities is not None and slug:
                 try:
                     meta = get_model_capabilities(slug, model, config=metadata_config)
+                    context_window = lookup_models_dev_context(slug, model, allow_network=False, config=metadata_config)
                     if meta is not None and meta.supports_reasoning is not None:
                         reasoning = meta.supports_reasoning
                 except Exception:
@@ -565,6 +567,8 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
             fast = resolve_fast_mode_overrides(
                 model, provider=slug, base_url=row.get("api_url")) is not None
             entry: dict[str, Any] = {"fast": fast, "reasoning": reasoning}
+            if context_window is not None:
+                entry["context_window"] = context_window
             if fast and model_supports_ultrafast(model):
                 entry["ultrafast"] = True
 

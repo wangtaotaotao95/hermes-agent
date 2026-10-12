@@ -812,6 +812,7 @@ export interface ModelOptionProvider {
 }
 /** ``hermes_cli/inventory.py::_apply_capabilities``. */
 export interface ModelCapabilities {
+  context_window?: number | null
   fast: boolean
   ultrafast?: boolean
   reasoning: boolean

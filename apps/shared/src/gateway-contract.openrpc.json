@@ -19377,6 +19377,18 @@
         "additionalProperties": false,
         "description": "``hermes_cli/inventory.py::_apply_capabilities``.",
         "properties": {
+          "context_window": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Context Window"
+          },
           "fast": {
             "title": "Fast",
             "type": "boolean"

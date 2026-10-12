@@ -1,5 +1,5 @@
 import type { ModelOptionProvider, ModelPricing } from '@hermes/shared'
-import { fuzzyRank, modelSearchText } from '@hermes/shared'
+import { compactNumber, fuzzyRank, modelSearchText } from '@hermes/shared'
 import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 import { type ReactElement, useMemo, useRef, useState } from 'react'
@@ -410,6 +410,7 @@ function ModelResults({
                       {t.shell.modelMenu.modelResets(resetLabel)}
                     </Badge>
                   )}
+                  <ModelContext tokens={provider.capabilities?.[model]?.context_window} />
                   <ModelPrice isCurrent={isCurrent} price={price} />
                 </CommandItem>
               )
@@ -507,6 +508,23 @@ function DownloadingModelRow({
         </span>
       </span>
     </CommandItem>
+  )
+}
+
+function ModelContext({ tokens }: { tokens?: number | null }) {
+  const { t } = useI18n()
+
+  if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens <= 0) {
+    return null
+  }
+
+  return (
+    <span
+      className="shrink-0 text-[0.62rem] tabular-nums opacity-80"
+      title={`${t.settings.customEndpoints.fields.context}: ${tokens.toLocaleString()}`}
+    >
+      {compactNumber(tokens)}
+    </span>
   )
 }
 

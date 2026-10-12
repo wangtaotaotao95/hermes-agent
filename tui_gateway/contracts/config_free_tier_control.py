@@ -471,6 +471,7 @@ class ModelPricing(Result):
 class ModelCapabilities(Result):
     """``hermes_cli/inventory.py::_apply_capabilities``."""
 
+    context_window: int | None = None
     fast: bool
     ultrafast: bool = False
     reasoning: bool
