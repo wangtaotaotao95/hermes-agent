@@ -28,11 +28,17 @@ _OWNER_KEYS = ("profile_home", "session_id", "lease_id", "live_session_id")
 _TERMINAL = frozenset({"settled", "failed", "cancelled", "ambiguous"})
 
 
+def _has_state_store(home: Path) -> bool:
+    """An interrupted initialization can leave a file with no SQLite schema."""
+    path = home / "state.db"
+    return path.is_file() and path.stat().st_size > 0
+
+
 def _bot_chat_tip(home: Path) -> str | None:
     """Current Bot Chat tip id, or None when the profile has no store or no Bot Chat yet."""
     from hermes_state import SessionDB
 
-    if not (home / 'state.db').is_file():
+    if not _has_state_store(home):
         return None
     db = SessionDB(db_path=home / 'state.db', read_only=True)
     try:
@@ -47,14 +53,14 @@ def find_canonical_live_owner(profile_home: Path | str) -> dict[str, Any] | None
 
     ``session_id`` is the current Bot Chat tip, or ``''`` when the profile has none yet: the
     authority's deliver door creates it on first delivery (main's ``--create-if-missing``),
-    so a missing chat is not a refusal. None only when the profile has no store at all."""
+    so a missing chat is not a refusal. None when the profile store is missing or still zero bytes."""
     from hermes_cli.gateway_runtime import discover_gateway_endpoint
 
     home = Path(profile_home).resolve()
     discovery = discover_gateway_endpoint(home, timeout=5)
     if discovery.state != 'ready' or discovery.endpoint is None:
         raise ValueError('profile authority is not ready')
-    if not (home / 'state.db').is_file():
+    if not _has_state_store(home):
         return None
     tip = _bot_chat_tip(home)
     return dict(profile_home=str(home), session_id=tip or '', canonical=True,
